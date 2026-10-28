@@ -1,0 +1,45 @@
+# Production follows the latest semver tag of this repository.
+# The broadcaster forwards, and the daily backup CronJob stays.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: production
+resources:
+  - ../base
+patches:
+  - target:
+      kind: Namespace
+      name: project
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: project
+  # The static volume todo-images is already bound in the namespace project.
+  - target:
+      kind: PersistentVolumeClaim
+      name: todo-image-claim
+    patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: local-path
+  - target:
+      kind: ConfigMap
+      name: todo-backend-config
+    patch: |-
+      - op: replace
+        path: /data/NATS_SUBJECT
+        value: todos.production
+  - target:
+      kind: ConfigMap
+      name: todo-broadcaster-config
+    patch: |-
+      - op: replace
+        path: /data/NATS_SUBJECT
+        value: todos.production
+      - op: replace
+        path: /data/NATS_QUEUE
+        value: broadcasters-production
+      - op: add
+        path: /data/BROADCAST_MODE
+        value: forward
